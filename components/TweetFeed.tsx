@@ -5,22 +5,11 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import TweetCard from "./TweetCard";
-
-interface Tweet {
-  id: string;
-  username: string;
-  handle: string;
-  profileImage: string;
-  content: string;
-  timestamp: string;
-  likes: number;
-  retweets: number;
-  comments: number;
-  media?: string[];
-  isFromMainAccount: boolean;
-}
+import { fetchAllTweets } from "../services/twitterService";
+import { Tweet } from "../types/twitter";
 
 interface TweetFeedProps {
   mainAccountTweets?: Tweet[];
@@ -31,14 +20,60 @@ interface TweetFeedProps {
 }
 
 const TweetFeed: React.FC<TweetFeedProps> = ({
-  mainAccountTweets = [],
-  modalidadesTweets = [],
-  isLoading = false,
+  mainAccountTweets: propMainAccountTweets = [],
+  modalidadesTweets: propModalidadesTweets = [],
+  isLoading: propIsLoading = false,
   onRefresh = () => {},
   onLoadMore = () => {},
 }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [mergedTweets, setMergedTweets] = useState<Tweet[]>([]);
+  const [mainAccountTweets, setMainAccountTweets] = useState<Tweet[]>(
+    propMainAccountTweets,
+  );
+  const [modalidadesTweets, setModalidadesTweets] = useState<Tweet[]>(
+    propModalidadesTweets,
+  );
+  const [isLoading, setIsLoading] = useState(propIsLoading);
+  const [error, setError] = useState<string | null>(null);
+
+  // Twitter URLs from the PRD
+  const mainAccountUrl =
+    "https://x.com/sportingcp?s=21&t=w1LNzbwfMeurEBhTVE-b-Q";
+  const modalidadesUrl =
+    "https://x.com/scpmodalidades?s=21&t=w1LNzbwfMeurEBhTVE-b-Q";
+
+  // Fetch tweets from Twitter API
+  const fetchTweets = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const {
+        mainAccountTweets: mainTweets,
+        modalidadesTweets: modalidadesTweets,
+      } = await fetchAllTweets(mainAccountUrl, modalidadesUrl);
+
+      setMainAccountTweets(mainTweets);
+      setModalidadesTweets(modalidadesTweets);
+    } catch (err) {
+      console.error("Error fetching tweets:", err);
+      setError("Failed to fetch tweets. Please try again later.");
+      Alert.alert("Error", "Failed to fetch tweets. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initial fetch on component mount
+  useEffect(() => {
+    if (
+      propMainAccountTweets.length === 0 &&
+      propModalidadesTweets.length === 0
+    ) {
+      fetchTweets();
+    }
+  }, []);
 
   // Merge and sort tweets from both accounts
   useEffect(() => {
@@ -55,84 +90,11 @@ const TweetFeed: React.FC<TweetFeedProps> = ({
   // Handle pull-to-refresh
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    onRefresh();
-    setRefreshing(false);
+    fetchTweets().finally(() => {
+      setRefreshing(false);
+      onRefresh();
+    });
   }, [onRefresh]);
-
-  // Generate mock data if no tweets are provided
-  useEffect(() => {
-    if (mainAccountTweets.length === 0 && modalidadesTweets.length === 0) {
-      const mockTweets: Tweet[] = [
-        {
-          id: "1",
-          username: "Sporting CP",
-          handle: "@SportingCP",
-          profileImage:
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=SportingCP",
-          content:
-            "Grande vitória hoje no estádio! Rumo ao título! 💚🦁 #SportingCP",
-          timestamp: "2023-05-15T18:30:00Z",
-          likes: 5243,
-          retweets: 1203,
-          comments: 342,
-          media: [
-            "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&q=80",
-          ],
-          isFromMainAccount: true,
-        },
-        {
-          id: "2",
-          username: "Sporting CP Modalidades",
-          handle: "@SCPModalidades",
-          profileImage:
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=SCPModalidades",
-          content:
-            "Parabéns à nossa equipa de futsal pela vitória na Taça de Portugal! 🏆 #FutsalSCP",
-          timestamp: "2023-05-14T20:15:00Z",
-          likes: 2134,
-          retweets: 587,
-          comments: 129,
-          media: [
-            "https://images.unsplash.com/photo-1577471488278-16eec37ffcc2?w=600&q=80",
-          ],
-          isFromMainAccount: false,
-        },
-        {
-          id: "3",
-          username: "Sporting CP",
-          handle: "@SportingCP",
-          profileImage:
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=SportingCP",
-          content:
-            "Convocatória para o jogo de amanhã contra o FC Porto. #DiaDeSporting",
-          timestamp: "2023-05-13T12:45:00Z",
-          likes: 3876,
-          retweets: 921,
-          comments: 456,
-          isFromMainAccount: true,
-        },
-        {
-          id: "4",
-          username: "Sporting CP Modalidades",
-          handle: "@SCPModalidades",
-          profileImage:
-            "https://api.dicebear.com/7.x/avataaars/svg?seed=SCPModalidades",
-          content:
-            "A nossa equipa de basquetebol garantiu o apuramento para a final! Vamos Sporting! 🏀",
-          timestamp: "2023-05-12T19:20:00Z",
-          likes: 1543,
-          retweets: 412,
-          comments: 87,
-          media: [
-            "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&q=80",
-          ],
-          isFromMainAccount: false,
-        },
-      ];
-
-      setMergedTweets(mockTweets);
-    }
-  }, [mainAccountTweets, modalidadesTweets]);
 
   // Render footer with loading indicator when loading more tweets
   const renderFooter = () => {
@@ -149,6 +111,15 @@ const TweetFeed: React.FC<TweetFeedProps> = ({
   const renderEmpty = () => {
     if (isLoading) return null;
 
+    if (error) {
+      return (
+        <View className="flex-1 items-center justify-center py-10">
+          <Text className="text-red-500 text-lg">{error}</Text>
+          <Text className="text-gray-500 mt-2">Pull down to try again</Text>
+        </View>
+      );
+    }
+
     return (
       <View className="flex-1 items-center justify-center py-10">
         <Text className="text-gray-500 text-lg">Nenhum tweet disponível</Text>
@@ -161,7 +132,25 @@ const TweetFeed: React.FC<TweetFeedProps> = ({
       <FlatList
         data={mergedTweets}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TweetCard tweet={item} />}
+        renderItem={({ item }) => (
+          <TweetCard
+            profileImage={item.profileImage}
+            username={item.username}
+            handle={item.handle}
+            content={item.content}
+            timestamp={new Date(item.timestamp).toLocaleDateString("pt-BR", {
+              day: "2-digit",
+              month: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            mediaUrl={item.media?.[0]}
+            likes={item.likes}
+            retweets={item.retweets}
+            comments={item.comments}
+            accountType={item.isFromMainAccount ? "main" : "modalidades"}
+          />
+        )}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
