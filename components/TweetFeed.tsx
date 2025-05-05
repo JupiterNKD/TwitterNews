@@ -63,12 +63,29 @@ const TweetFeed: React.FC<TweetFeedProps> = ({
         modalidadesCount: modalidadesTweets.length,
       });
 
-      setMainAccountTweets(mainTweets);
-      setModalidadesTweets(modalidadesTweets);
-    } catch (err) {
+      if (mainTweets.length === 0 && modalidadesTweets.length === 0) {
+        setError(
+          "No tweets found. Twitter API may have rate limited your requests.",
+        );
+      } else {
+        setMainAccountTweets(mainTweets);
+        setModalidadesTweets(modalidadesTweets);
+      }
+    } catch (err: any) {
       console.error("Error fetching tweets:", err);
-      setError("Failed to fetch tweets. Please try again later.");
-      Alert.alert("Error", "Failed to fetch tweets. Please try again later.");
+      // Provide more specific error messages based on the error
+      if (err.message && err.message.includes("rate limit")) {
+        setError("Twitter API rate limit exceeded. Please try again later.");
+      } else if (
+        err.message &&
+        err.message.includes("Failed to fetch user data")
+      ) {
+        setError(
+          "Failed to find Twitter accounts. Please check the Twitter handles.",
+        );
+      } else {
+        setError("Failed to fetch tweets. Please try again later.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -122,9 +139,11 @@ const TweetFeed: React.FC<TweetFeedProps> = ({
 
     if (error) {
       return (
-        <View className="flex-1 items-center justify-center py-10">
-          <Text className="text-red-500 text-lg">{error}</Text>
-          <Text className="text-gray-500 mt-2">Pull down to try again</Text>
+        <View className="flex-1 items-center justify-center py-10 px-4">
+          <Text className="text-red-500 text-lg text-center">{error}</Text>
+          <Text className="text-gray-500 mt-2 text-center">
+            Pull down to try again
+          </Text>
         </View>
       );
     }
