@@ -49,10 +49,19 @@ const TweetFeed: React.FC<TweetFeedProps> = ({
     setError(null);
 
     try {
+      console.log("Fetching tweets from URLs:", {
+        mainAccountUrl,
+        modalidadesUrl,
+      });
       const {
         mainAccountTweets: mainTweets,
         modalidadesTweets: modalidadesTweets,
       } = await fetchAllTweets(mainAccountUrl, modalidadesUrl);
+
+      console.log("Tweets fetched successfully:", {
+        mainCount: mainTweets.length,
+        modalidadesCount: modalidadesTweets.length,
+      });
 
       setMainAccountTweets(mainTweets);
       setModalidadesTweets(modalidadesTweets);
