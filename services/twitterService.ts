@@ -3,14 +3,29 @@ import { Tweet } from "../types/twitter";
 // Extract Twitter handle from URL
 export const extractHandleFromUrl = (url: string): string | null => {
   try {
-    // Parse URL to extract the path which contains the handle
-    const urlObj = new URL(url);
+    // For URLs like https://x.com/sportingcp?s=21&t=w1LNzbwfMeurEBhTVE-b-Q
+    // We need to extract 'sportingcp'
 
-    // The path is in the format "/username" or "/username/status/123"
-    const pathParts = urlObj.pathname.split("/");
+    // First check if it's a valid URL
+    if (!url || (!url.includes("x.com/") && !url.includes("twitter.com/"))) {
+      return null;
+    }
 
-    // The handle is the first non-empty part after the domain
-    const handle = pathParts.filter((part) => part.length > 0)[0];
+    // Extract the part after x.com/ or twitter.com/
+    let handle = "";
+    if (url.includes("x.com/")) {
+      handle = url.split("x.com/")[1];
+    } else if (url.includes("twitter.com/")) {
+      handle = url.split("twitter.com/")[1];
+    }
+
+    // Remove any query parameters or additional path segments
+    if (handle.includes("?")) {
+      handle = handle.split("?")[0];
+    }
+    if (handle.includes("/")) {
+      handle = handle.split("/")[0];
+    }
 
     return handle || null;
   } catch (error) {
@@ -111,6 +126,8 @@ export const fetchAllTweets = async (
     // Extract handles from URLs
     const mainAccountHandle = extractHandleFromUrl(mainAccountUrl);
     const modalidadesHandle = extractHandleFromUrl(modalidadesUrl);
+
+    console.log("Extracted handles:", { mainAccountHandle, modalidadesHandle });
 
     if (!mainAccountHandle || !modalidadesHandle) {
       throw new Error("Failed to extract Twitter handles from URLs");
